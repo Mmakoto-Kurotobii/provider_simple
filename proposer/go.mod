@@ -1,4 +1,4 @@
-module simple-provider
+module proposer
 
 go 1.12
 
@@ -11,4 +11,4 @@ require (
 	github.com/synerex/synerex_sxutil v0.3.11
 )
 
-replace github.com/synerex/synerex_sxutil v0.3.11 => ../synerex_sxutil
+replace github.com/synerex/synerex_sxutil v0.3.11 => ../../synerex_sxutil
