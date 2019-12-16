@@ -8,7 +8,5 @@ require (
 	github.com/synerex/synerex_api v0.2.1
 	github.com/synerex/synerex_nodeapi v0.4.6
 	github.com/synerex/synerex_proto v0.1.3
-	github.com/synerex/synerex_sxutil v0.3.11
+	github.com/synerex/synerex_sxutil v0.3.12
 )
-
-replace github.com/synerex/synerex_sxutil v0.3.11 => ../synerex_sxutil
