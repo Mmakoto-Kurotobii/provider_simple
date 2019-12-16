@@ -18,19 +18,49 @@ var (
 	nodesrv         = flag.String("nodesrv", "127.0.0.1:9990", "Node ID Server")
 	cluster_id      = flag.Int("cluster_id", 0, "ClusterId for The Synerex Server")
 	channel         = flag.Int("channel", 1, "Channel")
-	name            = flag.String("name", "SimpleProvider", "Provider Name")
+	name            = flag.String("name", "Proposer", "Provider Name")
 	sxServerAddress string
+	idlist     []uint64
+	spMap      map[uint64]*sxutil.SupplyOpts
+	mu		sync.Mutex
 )
 
-func supplyCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
-	log.Printf("callback [%v]\n", sp)
+func init(){
+	idlist = make([]uint64, 0)
+	spMap = make(map[uint64]*sxutil.SupplyOpts)
 }
 
-func subscribeSupply(client *sxutil.SXServiceClient) {
+func demandCallback(clt *sxutil.SXServiceClient, dm *api.Demand) {
+	log.Printf("callback [%v]\n", dm)
+
+	if dm.TargetId != 0 { // this is Select!
+		log.Println("getSelect!")
+
+		clt.Confirm(sxutil.IDType(dm.GetId()))
+
+	}else { // not select
+		// select any ride share demand!
+		// should check the type of ride..
+
+		sp := &sxutil.SupplyOpts{
+			Target: dm.GetId(),
+			Name: "Test Supply",
+			JSON: ``,
+		}
+
+		mu.Lock()
+		pid := clt.ProposeSupply(sp)
+		idlist = append(idlist,pid)
+		spMap[pid] = sp
+		mu.Unlock()
+	}
+}
+
+func subscribeDemand(client *sxutil.SXServiceClient) {
 	for {
 		ctx := context.Background() //
-		err := client.SubscribeSupply(ctx, supplyCallback)
-		log.Printf("Error:Supply %s\n", err.Error())
+		err := client.SubscribeDemand(ctx, demandCallback)
+		log.Printf("Error:Demand %s\n", err.Error())
 		// we need to restart
 
 		time.Sleep(5 * time.Second) // wait 5 seconds to reconnect
@@ -64,7 +94,7 @@ func providerInit() {
 
 	wg.Add(1)
 
-	go subscribeSupply(sclient)
+	go subscribeDemand(sclient)
 
 	wg.Wait()
 }

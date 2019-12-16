@@ -7,6 +7,7 @@ import (
 	"log"
 	"sync"
 	"time"
+	"math/rand"
 
 	api "github.com/synerex/synerex_api"
 	nodeapi "github.com/synerex/synerex_nodeapi"
@@ -18,12 +19,65 @@ var (
 	nodesrv         = flag.String("nodesrv", "127.0.0.1:9990", "Node ID Server")
 	cluster_id      = flag.Int("cluster_id", 0, "ClusterId for The Synerex Server")
 	channel         = flag.Int("channel", 1, "Channel")
-	name            = flag.String("name", "SimpleProvider", "Provider Name")
+	name            = flag.String("name", "Notifier", "Provider Name")
 	sxServerAddress string
+	dmMap      map[uint64]*sxutil.DemandOpts
+	spMap		map[uint64]*api.Supply
+	selection 	bool
+	idlist     []uint64
+	mu		sync.Mutex
 )
+
+func init(){
+	idlist = make([]uint64, 0)
+	dmMap = make(map[uint64]*sxutil.DemandOpts)
+	spMap = make(map[uint64]*api.Supply)
+	selection = false
+}
+
+// this function waits
+func startSelection(clt *sxutil.SXServiceClient,d time.Duration){
+	var sid uint64
+
+	for i := 0; i < 5; i++{
+		time.Sleep(d / 5)
+		log.Printf("waiting... %v",i)
+	}
+	mu.Lock()
+	// とりあえず、最後のProposeを選択する。
+	for k, _ := range spMap {
+		sid = k
+	}
+	mu.Unlock()
+	log.Printf("Select supply %v", spMap[sid])
+	clt.SelectSupply(spMap[sid])
+	// we have to cleanup all info.
+}
 
 func supplyCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 	log.Printf("callback [%v]\n", sp)
+	// choice is supply for me? or not.
+
+	mu.Lock()
+	if clt.IsSupplyTarget(sp, idlist) { //
+		// always select Supply
+		// this is not good..
+		//		clt.SelectSupply(sp)
+		// just show the supply Information
+		opts :=	dmMap[sp.TargetId]
+		log.Printf("Got Supply for %v as '%v'",opts, sp )
+		spMap[sp.TargetId] = sp
+		// should wait several seconds to find the best proposal.
+		// if there is no selection .. lets start
+		if !selection {
+			selection = true
+			go startSelection(clt, time.Second*5)
+		}
+	}else{
+		//		log.Printf("This is not my supply id %v, %v",sp,idlist)
+		// do not need to say.
+	}
+	mu.Unlock()
 }
 
 func subscribeSupply(client *sxutil.SXServiceClient) {
@@ -40,6 +94,16 @@ func subscribeSupply(client *sxutil.SXServiceClient) {
 			client.Client = newClt
 		}
 	}
+}
+
+func notifyDemand(sclient *sxutil.SXServiceClient, nm string, js string) {
+	opts := &sxutil.DemandOpts{Name: nm, JSON: js}
+	mu.Lock()
+	id, _ := sclient.NotifyDemand(opts)
+	idlist = append(idlist, id) // my supply list
+	dmMap[id] = opts            // my supply options
+	mu.Unlock()
+	log.Printf("Register my demand as id %v, %v",id,idlist)
 }
 
 func providerInit() {
@@ -65,6 +129,11 @@ func providerInit() {
 	wg.Add(1)
 
 	go subscribeSupply(sclient)
+
+	for {
+		notifyDemand(sclient, "Test Supply", "")
+		time.Sleep(time.Second * time.Duration(10 + rand.Int()%10))
+	}
 
 	wg.Wait()
 }
