@@ -72,7 +72,7 @@ func subscribeDemand(client *sxutil.SXServiceClient) {
 	}
 }
 
-func providerInit() {
+func providerInit(command nodeapi.KeepAliveCommand, ret string) {
 	channelTypes := []uint32{uint32(*channel)}
 	sxo := &sxutil.SxServerOpt{
 		NodeType:  nodeapi.NodeType_PROVIDER,
@@ -80,7 +80,7 @@ func providerInit() {
 		AreaId:    "Default",
 	}
 	// obtain synerex server address from nodeserv
-	srv, err := sxutil.RegisterNodeAndProc(*nodesrv, *name, channelTypes, sxo, providerInit)
+	srv, err := sxutil.RegisterNodeWithCmd(*nodesrv, *name, channelTypes, sxo, providerInit)
 	if err != nil {
 		log.Fatal("Can't register node...")
 	}
@@ -104,7 +104,7 @@ func main() {
 	go sxutil.HandleSigInt()
 	sxutil.RegisterDeferFunction(sxutil.UnRegisterNode)
 
-	providerInit()
+	providerInit(nodeapi.KeepAliveCommand_NONE, "")
 
 	sxutil.CallDeferFunctions() // cleanup!
 
