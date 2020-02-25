@@ -131,7 +131,7 @@ func providerInit() {
 	go subscribeSupply(sclient)
 
 	for {
-		notifyDemand(sclient, "Test Supply", "")
+		notifyDemand(sclient, "Test Demand", "")
 		time.Sleep(time.Second * time.Duration(10 + rand.Int()%10))
 	}
 
